@@ -41,6 +41,7 @@ Motor					KEYWORD2
 motor					KEYWORD2
 
 MotorStop				KEYWORD2
+motorstop				KEYWORD2
 ao						KEYWORD2
 
 __abs_8b				KEYWORD2

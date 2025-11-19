@@ -186,6 +186,7 @@ static inline void Motor(void)
 
 //* ================================================================
 
+#define motorstop(void) Motor(void)
 #define MotorStop(void) Motor(void)
 #define ao(void)        Motor(void)
 #define motor           Motor
