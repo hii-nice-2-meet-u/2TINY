@@ -3,7 +3,7 @@
 /*
  *
  *		File		:	tiny.h
- *		Release		:	v1.0.0
+ *		Release		:	v1.0.2
  *
  *		Date	:	Tue 18 Nov 2025
  *		Author	:	hii-nice-2-meet-u
@@ -94,6 +94,16 @@ typedef double TYPE__f64;
 //` MotorControl Functions
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+//* ================================================================
+
+__attribute__((always_inline)) static inline void _init_Motor(void);
+__attribute__((always_inline)) static inline void Motor(i16 LSp, i16 RSp);
+__attribute__((always_inline)) static inline void Motor(i16 Sp);
+__attribute__((always_inline)) static inline void Motor(i16 LSp, i16 RSp, const f64 duration);
+__attribute__((always_inline)) static inline void Motor(void);
+
+//* ================================================================
+
 //$ Function initialize Motor
 void _init_Motor(void)
 {
@@ -168,17 +178,17 @@ void Motor(i16 LSp, i16 RSp)
 //* ================================================================
 
 //+ Control Motor LEFT & RIGHT in same Speed
-static inline void Motor(i16 Sp) { Motor(Sp, Sp); }
+void Motor(i16 Sp) { Motor(Sp, Sp); }
 
 //+ Control Motor in Time duration
-static inline void Motor(i16 LSp, i16 RSp, const f64 duration)
+void Motor(i16 LSp, i16 RSp, const f64 duration)
 {
 	Motor(LSp, RSp);
 	_delay_ms(duration);
 }
 
 //+ Stop PWM Signal
-static inline void Motor(void)
+void Motor(void)
 {
 	OCR0B = 0; //< MotorA | PMW A | PD5 |
 	OCR0A = 0; //> MotorB | PMW B | PD6 |
@@ -194,6 +204,14 @@ static inline void Motor(void)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //` Function Math [ Fast Absolute ]
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+//* ================================================================
+
+__attribute__((always_inline)) static inline i8  __abs_8b(i8 n);
+__attribute__((always_inline)) static inline i16 __abs_16b(i16 n);
+__attribute__((always_inline)) static inline i32 __abs_32b(i32 n);
+
+//* ================================================================
 
 //$ Math function Get Absolute of value by pretty fast - 8 bits
 i8 __abs_8b(i8 n)
@@ -222,6 +240,15 @@ i32 __abs_32b(i32 n)
 
 #ifdef ___DISABLE_TIMER0_INTERRUPT___
 
+//* ================================================================
+
+__attribute__((always_inline)) static inline void _init_Timer(void);
+__attribute__((always_inline)) static inline u32  Timer__Get(void);
+__attribute__((always_inline)) static inline void Timer__Set(u32 TimeSet);
+__attribute__((always_inline)) static inline void Timer__Reset(void);
+
+//* ================================================================
+
 u32 __TIMER1_COUNTER__ = 0;
 
 //* ================================================================
@@ -233,6 +260,10 @@ u32 __TIMER1_COUNTER__ = 0;
 //\ " Resume "
 /// Function to Resume Time Counter
 #define Timer__Resume(void) TIMSK1 |= (1 << TOIE1)
+
+u32  Timer__Get(void);
+void Timer__Set(u32 TimeSet);
+void Timer__Reset(void);
 
 //* ================================================================
 
@@ -256,10 +287,10 @@ void _init_Timer(void)
 	/// Calculation: OCR1A = (F_CPU / prescaler / 1000) - 1
 	OCR1A = 249;
 
-	TIMSK1 = (1 << OCIE1A);
+	TIMSK1 |= (1 << OCIE1A);
 
 	//. Reset Timer Counter
-	__TIMER1_COUNTER__ = 0;
+	Timer__Reset();
 
 	//. Enable Timer1 compare match A interrupt
 	Timer__Resume();
@@ -321,6 +352,13 @@ void Timer__Reset(void)
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #ifdef ___ENABLE_SPI0___
+
+//* ================================================================
+
+__attribute__((always_inline)) static inline void _init_SPI0(void);
+__attribute__((always_inline)) static inline void SPI0_Tx(u8 data);
+__attribute__((always_inline)) static inline u8   SPI0_Rx(void);
+__attribute__((always_inline)) static inline u8   SPI0_TxRx(u8 data);
 
 //* ================================================================
 
@@ -386,16 +424,41 @@ u8 SPI0_TxRx(u8 data)
 //` Switch and LED Functions
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+//* ================================================================
+
+__attribute__((always_inline)) static inline void _init_SwitchAndLED(void);
+__attribute__((always_inline)) static inline u8   is_SwA(void);
+__attribute__((always_inline)) static inline void wait_SwA(void);
+__attribute__((always_inline)) static inline void wait_SwA_unPress(void);
+
+__attribute__((always_inline)) static inline void LED_A__ON(void);
+__attribute__((always_inline)) static inline void LED_A__OFF(void);
+__attribute__((always_inline)) static inline void blink_A(u16 duration_ms = 100, u8 times = 1);
+
+__attribute__((always_inline)) static inline void LED_B__ON(void);
+__attribute__((always_inline)) static inline void LED_B__OFF(void);
+__attribute__((always_inline)) static inline void blink_B(u16 duration_ms = 100, u8 times = 1);
+
+//* ================================================================
+
 //$ Function initialize Switch and LED Functions
 void _init_SwitchAndLED(void)
 {
-	//- Set Pin Switch as Input
-	/// Switch A : PB0
-	DDRB &= ~((1 << DDB0));
+	asm volatile(
+	    // clang-format off
 
-	//- Set Pin LED & IO as Input
-	/// LED B : PD3 / IO : PD2
-	DDRD &= ~((1 << DDD2) | (1 << DDD3));
+        "cbi        %[_DDRB],   %[_DDB0]                    \n\t"   //\ Clear Bit DDRB0  ->  Input   |   Switch & LED A
+        "cbi        %[_DDRD],   %[_DDD2]                    \n\t"   //\ Clear Bit DDRD2  ->  Input   |   Switch B
+        "cbi        %[_DDRD],   %[_DDD3]                    \n\t"   //\ Clear Bit DDRD3  ->  Input   |   IO
+
+        ::  [_DDRB]     "I"     (_SFR_IO_ADDR(DDRB)),
+            [_DDRD]     "I"     (_SFR_IO_ADDR(DDRD)),
+            [_DDB0]     "I"     (DDB0),
+            [_DDD2]     "I"     (DDD2),
+            [_DDD3]     "I"     (DDD3)
+
+        // clang-format off
+	);
 }
 
 //* ================================================================
@@ -426,39 +489,52 @@ void wait_SwA_unPress(void)
 //$ LED A Control - ON
 void LED_A__ON(void)
 {
-	//- Set Pin LED_A as Output
-	/// LED A : PB0 -> output
-	DDRB |= (1 << DDB0);
+	asm volatile(
+	    // clang-format off
+	
+        "sbi        %[_DDRB],   %[_DDB0]                    \n\t"   //\ Set Bit DDRB0   -> Output
+        "sbi        %[_PORTB],  %[_PORTB0]                  \n\t"   //\ Set Bit PORTB0  -> HIGH
 
-	//- Set Pin LED_A - HIGH
-	/// LED A : PB0 => HIGH
-	PORTB |= (1 << PORTB0);
+        ::  [_DDRB]     "I"     (_SFR_IO_ADDR(DDRB)),
+            [_DDB0]     "I"     (DDB0),
+            [_PORTB]    "I"     (_SFR_IO_ADDR(PORTB)),
+            [_PORTB0]   "I"     (PORTB0)
+
+        // clang-format off
+	);
 }
 
 //$ LED A Control - OFF
 void LED_A__OFF(void)
 {
-	//- Set Pin LED_A - LOW
-	/// LED A : PB0 => LOW
-	PORTB &= ~((1 << PORTB0));
+	asm volatile(
+	    // clang-format off
+	
+        "cbi        %[_PORTB],  %[_PORTB0]                  \n\t"   //\ Clear Bit PORTB0  -> LOW
+        "cbi        %[_DDRB],   %[_DDB0]                    \n\t"   //\ Clear Bit DDRB0   -> Input
 
-	//- Set Pin LED_A as Input
-	/// LED A : PB0 -> input
-	DDRB &= ~((1 << DDB0));
+        ::  [_DDRB]     "I"     (_SFR_IO_ADDR(DDRB)),
+            [_DDB0]     "I"     (DDB0),
+            [_PORTB]    "I"     (_SFR_IO_ADDR(PORTB)),
+            [_PORTB0]   "I"     (PORTB0)
+
+        // clang-format off
+	);
 }
 
 //+ blink LED_A
-void blink_A(u16 duration_ms = 100, u8 times = 1)
+
+void blink_A(u16 duration_ms, u8 times)
 {
 	while (times--)
 	{
 		LED_A__ON();
 		for (u16 i = 0; i < duration_ms; i++)
-			_delay_ms(1);
+			__builtin_avr_delay_cycles(16000UL);
 
 		LED_A__OFF();
 		for (u16 i = 0; i < duration_ms; i++)
-			_delay_ms(1);
+			__builtin_avr_delay_cycles(16000UL);
 	}
 }
 
@@ -469,43 +545,61 @@ void blink_A(u16 duration_ms = 100, u8 times = 1)
 //$ LED B Control - ON
 void LED_B__ON(void)
 {
-	//- Set Pin LED_B as Output
-	/// LED B : PD3 -> output
-	DDRD |= (1 << DDD3);
+	asm volatile(
+	    // clang-format off
+	
+        "sbi        %[_DDRD],   %[_DDD3]                    \n\t"   //\ Set Bit DDRD3   -> Output
+        "sbi        %[_PORTD],  %[_PORTD3]                  \n\t"   //\ Set Bit PORTD3  -> HIGH
 
-	//- Set Pin LED_B - HIGH
-	/// LED B : PD3 => HIGH
-	PORTD |= (1 << PORTD3);
+        ::  [_DDRD]     "I"     (_SFR_IO_ADDR(DDRD)),
+            [_DDD3]     "I"     (DDD3),
+            [_PORTD]    "I"     (_SFR_IO_ADDR(PORTD)),
+            [_PORTD3]   "I"     (PORTD3)
+
+        // clang-format off
+	);
 }
 
 //$ LED B Control - OFF
 void LED_B__OFF(void)
 {
-	//- Set Pin LED_B - LOW
-	/// LED B : PD3 => LOW
-	PORTD &= ~((1 << PORTD3));
+	asm volatile(
+	    // clang-format off
+	
+        "cbi        %[_PORTD],  %[_PORTD3]                  \n\t"   //\ Clear Bit PORTD3  -> LOW
+        "cbi        %[_DDRD],   %[_DDD3]                    \n\t"   //\ Clear Bit DDRD3   -> Input
 
-	//- Set Pin LED_B as Input
-	/// LED B : PD3 -> input
-	DDRD &= ~((1 << DDD3));
+        ::  [_DDRD]     "I"     (_SFR_IO_ADDR(DDRD)),
+            [_DDD3]     "I"     (DDD3),
+            [_PORTD]    "I"     (_SFR_IO_ADDR(PORTD)),
+            [_PORTD3]   "I"     (PORTD3)
+
+        // clang-format off
+	);
 }
 
 //+ blink LED_B
-void blink_B(u16 duration_ms = 100, u8 times = 1)
+void blink_B(u16 duration_ms, u8 times)
 {
 	while (times--)
 	{
 		LED_B__ON();
 		for (u16 i = 0; i < duration_ms; i++)
-			_delay_ms(1);
+			__builtin_avr_delay_cycles(16000UL);
 
 		LED_B__OFF();
 		for (u16 i = 0; i < duration_ms; i++)
-			_delay_ms(1);
+			__builtin_avr_delay_cycles(16000UL);
 	}
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+//* ================================================================
+
+__attribute__((always_inline)) static inline void _____TINY_init_(void);
+
+//* ================================================================
 
 void _____TINY_init_(void)
 {
@@ -519,6 +613,7 @@ void _____TINY_init_(void)
 #ifdef ___ENABLE_SPI0___
 	_init_SPI0();
 #endif
+
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -533,4 +628,3 @@ void initVariant(void)
 #endif
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
